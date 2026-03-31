@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Security.API.Endpoints;
 using Security.Application;
 using Security.Infrastructure;
 using Security.Infrastructure.Persistence;
@@ -12,7 +13,17 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 using (var scope = app.Services.CreateScope())
 {
@@ -23,8 +34,15 @@ using (var scope = app.Services.CreateScope())
     await seeder.SeedAsync();
 }
 
-app.MapOpenApi();
-app.MapGet("/", () => Results.Ok(new { message = "Security service is running." }));
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Security.API",
+    status = "running"
+}))
+.WithTags("System")
+.WithOpenApi();
+
+app.MapAuthEndpoints();
 
 app.Run();
 

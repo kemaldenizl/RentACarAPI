@@ -4,7 +4,7 @@ public static class HttpContextExtensions
 {
     public static string GetClientIpAddress(this HttpContext httpContext)
     {
-        var forwardedFor = httpContext.Request.Headers.XForwardedFor.FirstOrDefault();
+        var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(forwardedFor))
         {
             var firstIp = forwardedFor.Split(',')[0].Trim();

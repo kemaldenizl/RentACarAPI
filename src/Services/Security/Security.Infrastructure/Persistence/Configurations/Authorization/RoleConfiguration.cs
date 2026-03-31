@@ -29,7 +29,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
 
         builder.Ignore(x => x.DomainEvents);
 
-        builder.HasMany<RolePermission>("_permissions")
+        builder.HasMany(x => x.Permissions)
             .WithOne()
             .HasForeignKey(x => x.RoleId)
             .OnDelete(DeleteBehavior.Cascade);

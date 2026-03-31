@@ -44,7 +44,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Ignore(x => x.DomainEvents);
 
-        builder.HasMany<UserRole>("_roles")
+        builder.HasMany(x => x.Roles)
             .WithOne()
             .HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.Cascade);

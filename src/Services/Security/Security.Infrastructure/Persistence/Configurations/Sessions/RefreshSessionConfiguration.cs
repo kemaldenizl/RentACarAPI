@@ -42,7 +42,7 @@ public sealed class RefreshSessionConfiguration : IEntityTypeConfiguration<Refre
 
         builder.Ignore(x => x.DomainEvents);
 
-        builder.HasMany<RefreshToken>("_tokens")
+        builder.HasMany(x => x.Tokens)
             .WithOne()
             .HasForeignKey(x => x.SessionId)
             .OnDelete(DeleteBehavior.Cascade);

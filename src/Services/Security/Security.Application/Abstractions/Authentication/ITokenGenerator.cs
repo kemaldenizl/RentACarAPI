@@ -4,7 +4,7 @@ namespace Security.Application.Abstractions.Authentication;
 
 public interface ITokenGenerator
 {
-    Task<AuthTokensDto> GenerateAsync(
+    Task<AccessTokenDto> GenerateAccessTokenAsync(
         Guid userId,
         string email,
         IReadOnlyCollection<string> permissions,

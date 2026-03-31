@@ -12,7 +12,6 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
-
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
@@ -34,6 +33,9 @@ using (var scope = app.Services.CreateScope())
     await seeder.SeedAsync();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapGet("/", () => Results.Ok(new
 {
     service = "Security.API",
@@ -43,6 +45,8 @@ app.MapGet("/", () => Results.Ok(new
 .WithOpenApi();
 
 app.MapAuthEndpoints();
+app.MapUserEndpoints();
+app.MapTestEndpoints();
 
 app.Run();
 

@@ -17,7 +17,7 @@ public sealed class SecurityDbContextFactory : IDesignTimeDbContextFactory<Secur
             .AddEnvironmentVariables()
             .Build();
 
-        var connectionString = configuration.GetConnectionString("Postgres");
+        var connectionString = configuration.GetConnectionString("Postgres") ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
 
         var builder = new DbContextOptionsBuilder<SecurityDbContext>();
         builder.UseNpgsql(connectionString, npgsql =>

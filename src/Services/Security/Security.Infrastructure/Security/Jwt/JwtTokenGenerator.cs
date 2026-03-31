@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Security.Application.Abstractions.Authentication;
 using Security.Application.Auth.Dtos;
-using Security.Infrastructure.Security.Jwt;
+using Security.Application.Common.Security;
 
 namespace Security.Infrastructure.Security.Jwt;
 
@@ -32,7 +32,7 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : ITokenGene
             new(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
 
-        claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
+        claims.AddRange(permissions.Select(permission => new Claim(CustomClaimTypes.Permission, permission)));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

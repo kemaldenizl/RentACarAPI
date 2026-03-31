@@ -1,4 +1,4 @@
-namespace Security.API.Common.Auth;
+namespace Security.Application.Common.Security;
 
 public static class CustomClaimTypes
 {

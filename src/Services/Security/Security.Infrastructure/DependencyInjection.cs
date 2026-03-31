@@ -1,11 +1,17 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Security.Application.Abstractions.Authentication;
 using Security.Application.Abstractions.Persistence;
 using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
+using Security.Domain.Authorization;
+using Security.Infrastructure.Authorization;
 using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Repositories;
 using Security.Infrastructure.Persistence.Seed;
@@ -35,6 +41,66 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<IdentitySeedOptions>(configuration.GetSection(IdentitySeedOptions.SectionName));
+
+        var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+                         ?? throw new InvalidOperationException("Jwt configuration section is missing.");
+
+        if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey) || jwtOptions.SigningKey.Length < 32)
+            throw new InvalidOperationException("Jwt signing key must be at least 32 characters.");
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.MapInboundClaims = false;
+
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtOptions.Issuer,
+
+                    ValidateAudience = true,
+                    ValidAudience = jwtOptions.Audience,
+
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
+
+                    NameClaimType = "email",
+                    RoleClaimType = "role"
+                };
+            });
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(PermissionCodes.UsersRead, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.UsersRead)));
+
+            options.AddPolicy(PermissionCodes.UsersManage, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.UsersManage)));
+
+            options.AddPolicy(PermissionCodes.RolesRead, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.RolesRead)));
+
+            options.AddPolicy(PermissionCodes.RolesManage, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.RolesManage)));
+
+            options.AddPolicy(PermissionCodes.PermissionsRead, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.PermissionsRead)));
+
+            options.AddPolicy(PermissionCodes.PermissionsManage, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.PermissionsManage)));
+
+            options.AddPolicy(PermissionCodes.SessionsRead, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.SessionsRead)));
+
+            options.AddPolicy(PermissionCodes.SessionsManage, policy =>
+                policy.Requirements.Add(new PermissionRequirement(PermissionCodes.SessionsManage)));
+        });
+
+        services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();

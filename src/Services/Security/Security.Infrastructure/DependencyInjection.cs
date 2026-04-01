@@ -4,12 +4,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Security.Application.Abstractions.Authentication;
 using Security.Application.Abstractions.Persistence;
 using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
+using Security.Application.Common.Security;
 using Security.Domain.Authorization;
 using Security.Infrastructure.Authorization;
 using Security.Infrastructure.Persistence;
@@ -17,6 +19,7 @@ using Security.Infrastructure.Persistence.Repositories;
 using Security.Infrastructure.Persistence.Seed;
 using Security.Infrastructure.Security;
 using Security.Infrastructure.Security.Jwt;
+using Security.Infrastructure.Security.Redis;
 
 namespace Security.Infrastructure;
 
@@ -26,8 +29,7 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Postgres")
-            ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
+        var connectionString = configuration.GetConnectionString("Postgres") ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
 
         services.AddDbContext<SecurityDbContext>(options =>
         {
@@ -39,8 +41,14 @@ public static class DependencyInjection
             options.UseOpenIddict();
         });
 
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = configuration.GetConnectionString("Redis") ?? throw new InvalidOperationException("Connection string 'Redis' was not found.");
+        });
+
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<IdentitySeedOptions>(configuration.GetSection(IdentitySeedOptions.SectionName));
+        services.Configure<RedisRevocationOptions>(configuration.GetSection(RedisRevocationOptions.SectionName));
 
         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                          ?? throw new InvalidOperationException("Jwt configuration section is missing.");
@@ -52,7 +60,6 @@ public static class DependencyInjection
             .AddJwtBearer(options =>
             {
                 options.MapInboundClaims = false;
-
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -62,16 +69,39 @@ public static class DependencyInjection
                     ValidAudience = jwtOptions.Audience,
 
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
 
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
 
-                    NameClaimType = "email",
+                    NameClaimType = CustomClaimTypes.Email,
                     RoleClaimType = "role"
                 };
-            });
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var jti = context.Principal?.FindFirst(CustomClaimTypes.JwtId)?.Value;
+
+                        if (string.IsNullOrWhiteSpace(jti))
+                        {
+                            context.Fail("Token does not contain a valid jti.");
+                            return;
+                        }
+
+                        var revocationStore = context.HttpContext.RequestServices.GetRequiredService<IAccessTokenRevocationStore>();
+                        var isRevoked = await revocationStore.IsRevokedAsync(jti, context.HttpContext.RequestAborted);
+
+                        if (isRevoked)
+                        {
+                            context.Fail("Token has been revoked.");
+                        }
+                    }
+                };
+            }
+        );
+
 
         services.AddAuthorization(options =>
         {
@@ -111,6 +141,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        services.AddScoped<IAccessTokenRevocationStore, RedisAccessTokenRevocationStore>();
 
         services.AddSingleton<PasswordHasher>();
         services.AddScoped<IdentitySeeder>();

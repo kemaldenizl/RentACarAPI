@@ -12,6 +12,9 @@ public sealed class LogoutAllCommandValidator : AbstractValidator<LogoutAllComma
             .NotEmpty()
             .MaximumLength(200);
 
+        RuleFor(x => x.AccessTokenExpiresAtUtc)
+            .NotEmpty();
+
         RuleFor(x => x.DeviceName)
             .NotEmpty()
             .MaximumLength(300);

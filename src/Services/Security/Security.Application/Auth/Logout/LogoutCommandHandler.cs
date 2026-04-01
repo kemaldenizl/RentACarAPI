@@ -1,5 +1,6 @@
 using MediatR;
 using Security.Application.Abstractions.Persistence;
+using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
 using Security.Application.Common.Errors;
@@ -11,6 +12,7 @@ namespace Security.Application.Auth.Logout;
 public sealed class LogoutCommandHandler(
     IRefreshSessionRepository refreshSessionRepository,
     IAuditLogRepository auditLogRepository,
+    IAccessTokenRevocationStore accessTokenRevocationStore,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
     : IRequestHandler<LogoutCommand, Result>
@@ -36,6 +38,11 @@ public sealed class LogoutCommandHandler(
         }
 
         session.Revoke(utcNow);
+
+        await accessTokenRevocationStore.RevokeAsync(
+            request.AccessTokenJti,
+            request.AccessTokenExpiresAtUtc,
+            cancellationToken);
 
         var auditLog = new AuditLog(
             Guid.NewGuid(),

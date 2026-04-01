@@ -1,6 +1,7 @@
 using Security.API.Contracts.Auth;
 using Security.Application.Common.Results;
 using AppLoginResponse = Security.Application.Auth.Login.LoginResponse;
+using AppRefreshTokenResponse = Security.Application.Auth.Refresh.RefreshTokenResponse;
 using AppRegisterResponse = Security.Application.Auth.Register.RegisterResponse;
 
 namespace Security.API.Common.ErrorMapping;
@@ -28,12 +29,29 @@ public static class ApplicationResultMapper
     {
         if (result.IsSuccess)
         {
-            var response = new Contracts.Auth.LoginResponse(
+            var response = new LoginResponse(
                 new UserResponse(
                     result.Value.User.Id,
                     result.Value.User.Email,
                     result.Value.User.EmailVerified,
                     result.Value.User.IsActive),
+                new AuthTokensResponse(
+                    result.Value.Tokens.AccessToken,
+                    result.Value.Tokens.AccessTokenExpiresAtUtc,
+                    result.Value.Tokens.RefreshToken,
+                    result.Value.Tokens.RefreshTokenExpiresAtUtc));
+
+            return Results.Ok(response);
+        }
+
+        return MapFailure(result);
+    }
+
+    public static IResult ToApiResult(this Result<AppRefreshTokenResponse> result)
+    {
+        if (result.IsSuccess)
+        {
+            var response = new RefreshTokenResponse(
                 new AuthTokensResponse(
                     result.Value.Tokens.AccessToken,
                     result.Value.Tokens.AccessTokenExpiresAtUtc,
@@ -63,6 +81,31 @@ public static class ApplicationResultMapper
 
             "auth.invalid_credentials" => Results.Problem(
                 title: "Authentication failed",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+
+            "auth.invalid_refresh_token" => Results.Problem(
+                title: "Invalid refresh token",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+
+            "auth.expired_refresh_token" => Results.Problem(
+                title: "Expired refresh token",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+
+            "auth.revoked_refresh_token" => Results.Problem(
+                title: "Revoked refresh token",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+
+            "auth.consumed_refresh_token" => Results.Problem(
+                title: "Consumed refresh token",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+
+            "auth.session_revoked" => Results.Problem(
+                title: "Session revoked",
                 detail: result.Error.Description,
                 statusCode: StatusCodes.Status401Unauthorized),
 

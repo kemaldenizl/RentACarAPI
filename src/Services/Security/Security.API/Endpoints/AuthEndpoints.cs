@@ -6,6 +6,7 @@ using Security.API.Contracts.Auth;
 using Security.API.Contracts.Errors;
 using Security.Application.Auth.Login;
 using Security.Application.Auth.Register;
+using Security.Application.Auth.Refresh;
 
 namespace Security.API.Endpoints;
 
@@ -37,6 +38,16 @@ public static class AuthEndpoints
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .WithOpenApi();
 
+        group.MapPost("/refresh", RefreshAsync)
+            .WithName("RefreshToken")
+            .WithSummary("Refreshes access and refresh tokens.")
+            .WithDescription("Consumes a valid refresh token, rotates it, and returns a new access token and refresh token.")
+            .Accepts<RefreshTokenRequest>("application/json")
+            .Produces<Contracts.Auth.RefreshTokenResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .WithOpenApi();
+
         return app;
     }
 
@@ -63,6 +74,22 @@ public static class AuthEndpoints
         var command = new LoginCommand(
             request.Email,
             request.Password,
+            httpContext.GetDeviceName(),
+            httpContext.GetClientIpAddress());
+
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.ToApiResult();
+    }
+
+    private static async Task<IResult> RefreshAsync(
+        RefreshTokenRequest request,
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var command = new RefreshTokenCommand(
+            request.RefreshToken,
             httpContext.GetDeviceName(),
             httpContext.GetClientIpAddress());
 

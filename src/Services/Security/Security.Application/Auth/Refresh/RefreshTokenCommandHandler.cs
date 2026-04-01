@@ -124,7 +124,9 @@ public sealed class RefreshTokenCommandHandler(
             user.Id,
             user.Email,
             permissions,
-            cancellationToken);
+            session.Id,
+            cancellationToken
+        );
 
         var newRefreshTokenPair = refreshTokenGenerator.Generate();
         var newRefreshTokenExpiresAtUtc = utcNow.Add(RefreshTokenLifetime);

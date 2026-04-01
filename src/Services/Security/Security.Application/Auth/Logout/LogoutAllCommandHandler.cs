@@ -1,5 +1,6 @@
 using MediatR;
 using Security.Application.Abstractions.Persistence;
+using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
 using Security.Application.Common.Results;
@@ -10,6 +11,7 @@ namespace Security.Application.Auth.Logout;
 public sealed class LogoutAllCommandHandler(
     IRefreshSessionRepository refreshSessionRepository,
     IAuditLogRepository auditLogRepository,
+    IAccessTokenRevocationStore accessTokenRevocationStore,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
     : IRequestHandler<LogoutAllCommand, Result>
@@ -28,6 +30,11 @@ public sealed class LogoutAllCommandHandler(
         {
             session.Revoke(utcNow);
         }
+
+        await accessTokenRevocationStore.RevokeAsync(
+            request.AccessTokenJti,
+            request.AccessTokenExpiresAtUtc,
+            cancellationToken);
 
         var revokedCount = sessions.Count;
 

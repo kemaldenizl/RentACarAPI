@@ -57,13 +57,9 @@ public static class DependencyInjection
             throw new InvalidOperationException("Jwt signing key must be at least 32 characters.");
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer();
-
-        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IAccessTokenRevocationStore>((options, revocationStore) =>
+            .AddJwtBearer(options =>
             {
                 options.MapInboundClaims = false;
-
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -73,8 +69,7 @@ public static class DependencyInjection
                     ValidAudience = jwtOptions.Audience,
 
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
 
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
@@ -95,9 +90,8 @@ public static class DependencyInjection
                             return;
                         }
 
-                        var isRevoked = await revocationStore.IsRevokedAsync(
-                            jti,
-                            context.HttpContext.RequestAborted);
+                        var revocationStore = context.HttpContext.RequestServices.GetRequiredService<IAccessTokenRevocationStore>();
+                        var isRevoked = await revocationStore.IsRevokedAsync(jti, context.HttpContext.RequestAborted);
 
                         if (isRevoked)
                         {
@@ -105,7 +99,9 @@ public static class DependencyInjection
                         }
                     }
                 };
-            });
+            }
+        );
+
 
         services.AddAuthorization(options =>
         {

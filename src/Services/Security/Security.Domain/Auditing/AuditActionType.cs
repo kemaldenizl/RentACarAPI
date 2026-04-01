@@ -10,12 +10,13 @@ public enum AuditActionType
     RefreshReuseDetected = 6,
     LogoutCurrentSession = 7,
     LogoutAllSessions = 8,
-    EmailVerificationRequested = 9,
-    EmailVerified = 10,
-    PasswordResetRequested = 11,
-    PasswordResetCompleted = 12,
-    RoleAssigned = 13,
-    RoleRemoved = 14,
-    PermissionAssignedToRole = 15,
-    PermissionRemovedFromRole = 16
+    SessionRevoked = 9,
+    EmailVerificationRequested = 10,
+    EmailVerified = 11,
+    PasswordResetRequested = 12,
+    PasswordResetCompleted = 13,
+    RoleAssigned = 14,
+    RoleRemoved = 15,
+    PermissionAssignedToRole = 16,
+    PermissionRemovedFromRole = 17
 }

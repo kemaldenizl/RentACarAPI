@@ -124,6 +124,11 @@ public static class ApplicationResultMapper
                 detail: result.Error.Description,
                 statusCode: StatusCodes.Status409Conflict),
 
+            "auth.refresh_token_reuse_detected" => Results.Problem(
+                title: "Refresh token reuse detected",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+            
             _ => Results.Problem(
                 title: "Application error",
                 detail: result.Error.Description,

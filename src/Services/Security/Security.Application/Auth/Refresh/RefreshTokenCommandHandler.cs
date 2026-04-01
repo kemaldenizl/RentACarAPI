@@ -38,45 +38,81 @@ public sealed class RefreshTokenCommandHandler(
 
         if (session is null)
         {
-            await WriteFailedRefreshAuditAsync(null, request.IpAddress, "not_found", utcNow, cancellationToken);
+            await WriteRefreshFailedAuditAsync(
+                null,
+                request.IpAddress,
+                request.DeviceName,
+                "not_found",
+                utcNow,
+                cancellationToken);
+
             return Result<RefreshTokenResponse>.Failure(AuthErrors.InvalidRefreshToken);
+        }
+
+        var existingToken = session.GetTokenByHash(hashedRefreshToken);
+        if (existingToken is null)
+        {
+            await RevokeSessionForReuseSuspicionAsync(
+                session,
+                request.IpAddress,
+                request.DeviceName,
+                "token_not_attached_to_session",
+                utcNow,
+                cancellationToken);
+
+            return Result<RefreshTokenResponse>.Failure(AuthErrors.RefreshTokenReuseDetected);
         }
 
         if (session.Revoked)
         {
-            await WriteFailedRefreshAuditAsync(session.UserId, request.IpAddress, "session_revoked", utcNow, cancellationToken);
+            await WriteRefreshFailedAuditAsync(
+                session.UserId,
+                request.IpAddress,
+                request.DeviceName,
+                "session_revoked",
+                utcNow,
+                cancellationToken);
+
             return Result<RefreshTokenResponse>.Failure(AuthErrors.SessionRevoked);
         }
 
-        var existingToken = session.Tokens.FirstOrDefault(x => x.TokenHash == hashedRefreshToken);
-        if (existingToken is null)
+        if (existingToken.Revoked || existingToken.Consumed)
         {
-            await WriteFailedRefreshAuditAsync(session.UserId, request.IpAddress, "token_not_attached_to_session", utcNow, cancellationToken);
-            return Result<RefreshTokenResponse>.Failure(AuthErrors.InvalidRefreshToken);
-        }
+            await RevokeSessionForReuseSuspicionAsync(
+                session,
+                request.IpAddress,
+                request.DeviceName,
+                existingToken.Revoked ? "revoked_token_reused" : "consumed_token_reused",
+                utcNow,
+                cancellationToken);
 
-        if (existingToken.Revoked)
-        {
-            await WriteFailedRefreshAuditAsync(session.UserId, request.IpAddress, "token_revoked", utcNow, cancellationToken);
-            return Result<RefreshTokenResponse>.Failure(AuthErrors.RevokedRefreshToken);
-        }
-
-        if (existingToken.Consumed)
-        {
-            await WriteFailedRefreshAuditAsync(session.UserId, request.IpAddress, "token_consumed", utcNow, cancellationToken);
-            return Result<RefreshTokenResponse>.Failure(AuthErrors.ConsumedRefreshToken);
+            return Result<RefreshTokenResponse>.Failure(AuthErrors.RefreshTokenReuseDetected);
         }
 
         if (existingToken.IsExpired(utcNow))
         {
-            await WriteFailedRefreshAuditAsync(session.UserId, request.IpAddress, "token_expired", utcNow, cancellationToken);
+            await WriteRefreshFailedAuditAsync(
+                session.UserId,
+                request.IpAddress,
+                request.DeviceName,
+                "token_expired",
+                utcNow,
+                cancellationToken);
+
             return Result<RefreshTokenResponse>.Failure(AuthErrors.ExpiredRefreshToken);
         }
 
         var user = await userRepository.GetByIdAsync(session.UserId, cancellationToken);
         if (user is null || !user.IsActive)
         {
-            await WriteFailedRefreshAuditAsync(session.UserId, request.IpAddress, "user_not_active", utcNow, cancellationToken);
+            await WriteRefreshFailedAuditAsync(
+                session.UserId,
+                request.IpAddress,
+                request.DeviceName,
+                "user_not_active",
+                utcNow,
+                cancellationToken);
+
             return Result<RefreshTokenResponse>.Failure(AuthErrors.InvalidRefreshToken);
         }
 
@@ -125,9 +161,34 @@ public sealed class RefreshTokenCommandHandler(
         return Result<RefreshTokenResponse>.Success(response);
     }
 
-    private async Task WriteFailedRefreshAuditAsync(
+    private async Task RevokeSessionForReuseSuspicionAsync(
+        RefreshSession session,
+        string ipAddress,
+        string deviceName,
+        string reason,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        session.Revoke(utcNow);
+
+        var auditLog = new AuditLog(
+            Guid.NewGuid(),
+            session.UserId,
+            AuditActionType.RefreshReuseDetected,
+            ipAddress.Trim(),
+            deviceName.Trim(),
+            Guid.NewGuid().ToString("N"),
+            $$"""{"event":"refresh_reuse_detected","reason":"{{reason}}","sessionId":"{{session.Id}}"}""",
+            utcNow);
+
+        await auditLogRepository.AddAsync(auditLog, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task WriteRefreshFailedAuditAsync(
         Guid? userId,
         string ipAddress,
+        string deviceName,
         string reason,
         DateTime utcNow,
         CancellationToken cancellationToken)
@@ -137,7 +198,7 @@ public sealed class RefreshTokenCommandHandler(
             userId,
             AuditActionType.RefreshFailed,
             ipAddress.Trim(),
-            "unknown",
+            deviceName.Trim(),
             Guid.NewGuid().ToString("N"),
             $$"""{"event":"refresh_failed","reason":"{{reason}}"}""",
             utcNow);

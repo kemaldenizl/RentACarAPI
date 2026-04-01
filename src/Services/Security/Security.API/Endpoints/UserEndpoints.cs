@@ -19,6 +19,8 @@ public static class UserEndpoints
             var response = new CurrentUserResponse(
                 currentUser.UserId,
                 currentUser.Email,
+                currentUser.SessionId,
+                currentUser.AccessTokenJti,
                 currentUser.Permissions
             );
 

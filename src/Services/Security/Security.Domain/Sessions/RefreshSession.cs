@@ -69,4 +69,16 @@ public sealed class RefreshSession : AggregateRoot
             .OrderByDescending(x => x.CreatedAtUtc)
             .FirstOrDefault();
     }
+
+    public bool ContainsTokenHash(string tokenHash)
+    {
+        tokenHash = Guard.AgainstNullOrWhiteSpace(tokenHash, nameof(tokenHash));
+        return _tokens.Any(x => x.TokenHash == tokenHash);
+    }
+
+    public RefreshToken? GetTokenByHash(string tokenHash)
+    {
+        tokenHash = Guard.AgainstNullOrWhiteSpace(tokenHash, nameof(tokenHash));
+        return _tokens.FirstOrDefault(x => x.TokenHash == tokenHash);
+    }
 }

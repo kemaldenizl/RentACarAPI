@@ -53,14 +53,6 @@ public sealed class LoginCommandHandler(
         var utcNow = dateTimeProvider.UtcNow;
         user.MarkLogin(utcNow);
 
-        var permissions = await roleRepository.GetPermissionCodesByUserIdAsync(user.Id, cancellationToken);
-
-        var accessToken = await tokenGenerator.GenerateAccessTokenAsync(
-            user.Id,
-            user.Email,
-            permissions,
-            cancellationToken);
-
         var refreshTokenPair = refreshTokenGenerator.Generate();
         var refreshTokenExpiresAtUtc = utcNow.AddDays(30);
 
@@ -80,6 +72,15 @@ public sealed class LoginCommandHandler(
 
         session.AddToken(refreshToken);
 
+        var permissions = await roleRepository.GetPermissionCodesByUserIdAsync(user.Id, cancellationToken);
+
+        var accessToken = await tokenGenerator.GenerateAccessTokenAsync(
+            user.Id,
+            user.Email,
+            permissions,
+            session.Id,
+            cancellationToken);
+
         await refreshSessionRepository.AddAsync(session, cancellationToken);
 
         var successAudit = new AuditLog(
@@ -89,7 +90,7 @@ public sealed class LoginCommandHandler(
             request.IpAddress.Trim(),
             request.DeviceName.Trim(),
             Guid.NewGuid().ToString("N"),
-            $$"""{"event":"login_succeeded","email":"{{user.Email}}"}""",
+            $$"""{"event":"login_succeeded","email":"{{user.Email}}","sessionId":"{{session.Id}}"}""",
             utcNow);
 
         await auditLogRepository.AddAsync(successAudit, cancellationToken);

@@ -1,11 +1,15 @@
 using MediatR;
 using Security.API.Abstractions;
 using Security.API.Common;
-using Security.API.Common.ErrorMapping;
+using Security.API.Common.Auth;
 using Security.API.Contracts.Auth;
+using Security.API.Common.ErrorMapping;
 using Security.API.Contracts.Errors;
 using Security.Application.Auth.Login;
 using Security.Application.Auth.Register;
+using Security.Application.Auth.Refresh;
+using Security.Application.Auth.Logout;
+using Security.Application.Common.Results;
 
 namespace Security.API.Endpoints;
 
@@ -37,6 +41,35 @@ public static class AuthEndpoints
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .WithOpenApi();
 
+        group.MapPost("/refresh", RefreshAsync)
+            .WithName("RefreshToken")
+            .WithSummary("Refreshes access and refresh tokens.")
+            .WithDescription("Consumes a valid refresh token, rotates it, and returns a new access token and refresh token.")
+            .Accepts<RefreshTokenRequest>("application/json")
+            .Produces<Contracts.Auth.RefreshTokenResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .WithOpenApi();
+
+        group.MapPost("/logout", LogoutAsync)
+            .RequireAuthorization()
+            .WithName("Logout")
+            .WithSummary("Logs out the current session.")
+            .WithDescription("Revokes the current authenticated session.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .WithOpenApi();
+
+        group.MapPost("/logout-all", LogoutAllAsync)
+            .RequireAuthorization()
+            .WithName("LogoutAll")
+            .WithSummary("Logs out all sessions.")
+            .WithDescription("Revokes all sessions belonging to the current authenticated user.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .WithOpenApi();
+
         return app;
     }
 
@@ -63,6 +96,75 @@ public static class AuthEndpoints
         var command = new LoginCommand(
             request.Email,
             request.Password,
+            httpContext.GetDeviceName(),
+            httpContext.GetClientIpAddress());
+
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.ToApiResult();
+    }
+
+    private static async Task<IResult> RefreshAsync(
+        RefreshTokenRequest request,
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var command = new RefreshTokenCommand(
+            request.RefreshToken,
+            httpContext.GetDeviceName(),
+            httpContext.GetClientIpAddress());
+
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.ToApiResult();
+    }
+
+    private static async Task<IResult> LogoutAsync(
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var currentUser = httpContext.User.ToCurrentUser();
+
+        if (currentUser.SessionId is null || string.IsNullOrWhiteSpace(currentUser.AccessTokenJti))
+        {
+            return Results.Problem(
+                title: "Invalid session context",
+                detail: "The current access token does not contain a valid session context.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var command = new LogoutCommand(
+            currentUser.UserId,
+            currentUser.SessionId.Value,
+            currentUser.AccessTokenJti,
+            httpContext.GetDeviceName(),
+            httpContext.GetClientIpAddress());
+
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.ToApiResult();
+    }
+
+    private static async Task<IResult> LogoutAllAsync(
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var currentUser = httpContext.User.ToCurrentUser();
+
+        if (string.IsNullOrWhiteSpace(currentUser.AccessTokenJti))
+        {
+            return Results.Problem(
+                title: "Invalid token context",
+                detail: "The current access token does not contain a valid JWT identifier.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var command = new LogoutAllCommand(
+            currentUser.UserId,
+            currentUser.AccessTokenJti,
             httpContext.GetDeviceName(),
             httpContext.GetClientIpAddress());
 

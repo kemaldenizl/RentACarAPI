@@ -17,6 +17,7 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : ITokenGene
         Guid userId,
         string email,
         IReadOnlyCollection<string> permissions,
+        Guid? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         ValidateOptions(_options);
@@ -26,11 +27,16 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : ITokenGene
 
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new(JwtRegisteredClaimNames.Email, email),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(CustomClaimTypes.Subject, userId.ToString()),
+            new(CustomClaimTypes.Email, email),
+            new(CustomClaimTypes.JwtId, Guid.NewGuid().ToString("N")),
             new(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
+
+        if (sessionId.HasValue)
+        {
+            claims.Add(new Claim(CustomClaimTypes.SessionId, sessionId.Value.ToString()));
+        }
 
         claims.AddRange(permissions.Select(permission => new Claim(CustomClaimTypes.Permission, permission)));
 

@@ -126,6 +126,7 @@ public static class AuthEndpoints
         CancellationToken cancellationToken)
     {
         var currentUser = httpContext.User.ToCurrentUser();
+        var currentAccessToken = httpContext.User.ToCurrentAccessToken();
 
         if (currentUser.SessionId is null || string.IsNullOrWhiteSpace(currentUser.AccessTokenJti))
         {
@@ -139,6 +140,7 @@ public static class AuthEndpoints
             currentUser.UserId,
             currentUser.SessionId.Value,
             currentUser.AccessTokenJti,
+            currentAccessToken.ExpiresAtUtc,
             httpContext.GetDeviceName(),
             httpContext.GetClientIpAddress());
 
@@ -153,6 +155,7 @@ public static class AuthEndpoints
         CancellationToken cancellationToken)
     {
         var currentUser = httpContext.User.ToCurrentUser();
+        var currentAccessToken = httpContext.User.ToCurrentAccessToken();
 
         if (string.IsNullOrWhiteSpace(currentUser.AccessTokenJti))
         {
@@ -165,6 +168,7 @@ public static class AuthEndpoints
         var command = new LogoutAllCommand(
             currentUser.UserId,
             currentUser.AccessTokenJti,
+            currentAccessToken.ExpiresAtUtc,
             httpContext.GetDeviceName(),
             httpContext.GetClientIpAddress());
 

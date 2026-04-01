@@ -6,6 +6,7 @@ using Security.API.Common.ErrorMapping;
 using Security.API.Contracts.Sessions;
 using Security.Application.Sessions.GetMySessions;
 using Security.Application.Sessions.RevokeSession;
+using Security.Infrastructure.RateLimiting;
 
 namespace Security.API.Endpoints;
 
@@ -18,14 +19,17 @@ public static class SessionEndpoints
             .RequireAuthorization();
 
         group.MapGet("/", GetMySessionsAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Sessions)
             .WithName("GetMySessions")
             .WithSummary("Gets the current user's sessions.")
             .WithDescription("Returns active and revoked sessions belonging to the authenticated user.")
             .Produces<IReadOnlyCollection<SessionResponse>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         group.MapDelete("/{id:guid}", RevokeSessionAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Sessions)
             .WithName("RevokeSession")
             .WithSummary("Revokes a specific session.")
             .WithDescription("Revokes a specific session belonging to the authenticated user.")
@@ -33,6 +37,7 @@ public static class SessionEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         return app;

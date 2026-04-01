@@ -10,6 +10,7 @@ using Security.Application.Auth.Register;
 using Security.Application.Auth.Refresh;
 using Security.Application.Auth.Logout;
 using Security.Application.Common.Results;
+using Security.Infrastructure.RateLimiting;
 
 namespace Security.API.Endpoints;
 
@@ -21,6 +22,7 @@ public static class AuthEndpoints
             .WithTags(ApiTags.Auth);
 
         group.MapPost("/register", RegisterAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Register)
             .WithName("Register")
             .WithSummary("Registers a new user.")
             .WithDescription("Creates a new user account.")
@@ -28,9 +30,11 @@ public static class AuthEndpoints
             .Produces<Security.API.Contracts.Auth.RegisterResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         group.MapPost("/login", LoginAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Login)
             .WithName("Login")
             .WithSummary("Authenticates a user.")
             .WithDescription("Authenticates a user with email and password and returns access and refresh tokens.")
@@ -39,9 +43,11 @@ public static class AuthEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         group.MapPost("/refresh", RefreshAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Refresh)
             .WithName("RefreshToken")
             .WithSummary("Refreshes access and refresh tokens.")
             .WithDescription("Consumes a valid refresh token, rotates it, and returns a new access token and refresh token.")
@@ -49,9 +55,11 @@ public static class AuthEndpoints
             .Produces<Contracts.Auth.RefreshTokenResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         group.MapPost("/logout", LogoutAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Logout)
             .RequireAuthorization()
             .WithName("Logout")
             .WithSummary("Logs out the current session.")
@@ -59,15 +67,18 @@ public static class AuthEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         group.MapPost("/logout-all", LogoutAllAsync)
+            .RequireRateLimiting(RateLimitPolicyNames.Logout)
             .RequireAuthorization()
             .WithName("LogoutAll")
             .WithSummary("Logs out all sessions.")
             .WithDescription("Revokes all sessions belonging to the current authenticated user.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         return app;

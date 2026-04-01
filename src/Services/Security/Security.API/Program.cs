@@ -46,6 +46,7 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
+app.MapSessionEndpoints();
 app.MapTestEndpoints();
 
 app.Run();

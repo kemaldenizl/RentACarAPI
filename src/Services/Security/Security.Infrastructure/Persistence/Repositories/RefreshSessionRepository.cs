@@ -40,6 +40,7 @@ public sealed class RefreshSessionRepository(SecurityDbContext dbContext) : IRef
         return await dbContext.RefreshSessions
             .Include(x => x.Tokens)
             .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }
 }

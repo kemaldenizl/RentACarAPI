@@ -8,6 +8,16 @@ namespace Security.API.Common.ErrorMapping;
 
 public static class ApplicationResultMapper
 {
+    public static IResult ToApiResult(this Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return Results.NoContent();
+        }
+
+        return MapFailure(result);
+    }
+
     public static IResult ToApiResult(this Result<AppRegisterResponse> result)
     {
         if (result.IsSuccess)
@@ -64,7 +74,7 @@ public static class ApplicationResultMapper
         return MapFailure(result);
     }
 
-    private static IResult MapFailure<T>(Result<T> result)
+    private static IResult MapFailure(Result result)
     {
         var errorCode = result.Error.Code;
 
@@ -109,6 +119,21 @@ public static class ApplicationResultMapper
                 detail: result.Error.Description,
                 statusCode: StatusCodes.Status401Unauthorized),
 
+            "auth.refresh_token_reuse_detected" => Results.Problem(
+                title: "Refresh token reuse detected",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status401Unauthorized),
+
+            "auth.invalid_session" => Results.Problem(
+                title: "Invalid session",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status400BadRequest),
+
+            "auth.session_not_found" => Results.Problem(
+                title: "Session not found",
+                detail: result.Error.Description,
+                statusCode: StatusCodes.Status404NotFound),
+
             "auth.user_inactive" => Results.Problem(
                 title: "User inactive",
                 detail: result.Error.Description,
@@ -124,15 +149,15 @@ public static class ApplicationResultMapper
                 detail: result.Error.Description,
                 statusCode: StatusCodes.Status409Conflict),
 
-            "auth.refresh_token_reuse_detected" => Results.Problem(
-                title: "Refresh token reuse detected",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
-            
             _ => Results.Problem(
                 title: "Application error",
                 detail: result.Error.Description,
                 statusCode: StatusCodes.Status400BadRequest)
         };
+    }
+
+    private static IResult MapFailure<T>(Result<T> result)
+    {
+        return MapFailure((Result)result);
     }
 }

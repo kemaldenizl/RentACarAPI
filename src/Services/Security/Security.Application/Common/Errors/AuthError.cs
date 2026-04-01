@@ -13,4 +13,6 @@ public static class AuthErrors
     public static readonly Error ConsumedRefreshToken = new("auth.consumed_refresh_token", "Refresh token has already been used.");
     public static readonly Error SessionRevoked = new("auth.session_revoked", "Session is revoked.");
     public static readonly Error RefreshTokenReuseDetected = new("auth.refresh_token_reuse_detected", "Refresh token reuse detected. Session has been revoked.");
+    public static readonly Error InvalidSession = new("auth.invalid_session", "Session is invalid.");
+    public static readonly Error SessionNotFound = new("auth.session_not_found", "Session was not found.");
 }

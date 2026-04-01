@@ -8,5 +8,6 @@ public interface ITokenGenerator
         Guid userId,
         string email,
         IReadOnlyCollection<string> permissions,
+        Guid? sessionId = null,
         CancellationToken cancellationToken = default);
 }

@@ -4,11 +4,13 @@ using Security.Application;
 using Security.Infrastructure;
 using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Seed;
+using Security.API.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddRateLimitExt(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
@@ -33,6 +35,7 @@ using (var scope = app.Services.CreateScope())
     await seeder.SeedAsync();
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

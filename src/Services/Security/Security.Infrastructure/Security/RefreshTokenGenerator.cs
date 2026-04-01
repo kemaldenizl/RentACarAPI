@@ -12,14 +12,16 @@ public sealed class RefreshTokenGenerator : IRefreshTokenGenerator
         RandomNumberGenerator.Fill(bytes);
 
         var plainTextToken = Convert.ToBase64String(bytes);
-        var hashedToken = HashToken(plainTextToken);
+        var hashedToken = Hash(plainTextToken);
 
         return (plainTextToken, hashedToken);
     }
 
-    private static string HashToken(string token)
+    public string Hash(string plainTextToken)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        ArgumentException.ThrowIfNullOrWhiteSpace(plainTextToken);
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(plainTextToken));
         return Convert.ToHexString(bytes);
     }
 }

@@ -11,4 +11,10 @@ public sealed class RefreshSessionRepository(SecurityDbContext dbContext) : IRef
 
         return dbContext.RefreshSessions.AddAsync(session, cancellationToken).AsTask();
     }
+    public async Task<RefreshSession?> GetByRefreshTokenHashAsync(string refreshTokenHash, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.RefreshSessions
+            .Include(x => x.Tokens)
+            .FirstOrDefaultAsync(x => x.Tokens.Any(t => t.TokenHash == refreshTokenHash),cancellationToken);
+    }
 }

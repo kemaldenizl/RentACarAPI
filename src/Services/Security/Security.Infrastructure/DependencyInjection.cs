@@ -20,6 +20,11 @@ using Security.Infrastructure.Persistence.Seed;
 using Security.Infrastructure.Security;
 using Security.Infrastructure.Security.Jwt;
 using Security.Infrastructure.Security.Redis;
+using Microsoft.AspNetCore.Http;
+using Security.Application.Abstractions.Auditing;
+using Security.Application.Abstractions.RequestContext;
+using Security.Infrastructure.Auditing;
+using Security.Infrastructure.RequestContext;
 
 namespace Security.Infrastructure;
 
@@ -147,6 +152,10 @@ public static class DependencyInjection
         services.AddScoped<IdentitySeeder>();
 
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
+
+        services.AddHttpContextAccessor();
+        services.AddScoped<IRequestContext, HttpRequestContext>();
+        services.AddScoped<IAuditLogFactory, AuditLogFactory>();
 
         return services;
     }

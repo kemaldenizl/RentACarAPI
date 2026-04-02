@@ -5,6 +5,7 @@ using Security.Infrastructure;
 using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Seed;
 using Security.API.Extensions;
+using Security.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

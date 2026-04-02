@@ -1,10 +1,13 @@
 using MediatR;
 using Security.Application.Abstractions.Authentication;
+using Security.Application.Abstractions.Auditing;
 using Security.Application.Abstractions.Persistence;
+using Security.Application.Abstractions.RequestContext;
 using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
 using Security.Application.Auth.Dtos;
+using Security.Application.Common.Auditing;
 using Security.Application.Common.Errors;
 using Security.Application.Common.Results;
 using Security.Domain.Auditing;
@@ -17,6 +20,8 @@ public sealed class LoginCommandHandler(
     IRoleRepository roleRepository,
     IRefreshSessionRepository refreshSessionRepository,
     IAuditLogRepository auditLogRepository,
+    IAuditLogFactory auditLogFactory,
+    IRequestContext requestContext,
     IPasswordHasher passwordHasher,
     IRefreshTokenGenerator refreshTokenGenerator,
     ITokenGenerator tokenGenerator,
@@ -33,20 +38,20 @@ public sealed class LoginCommandHandler(
         var user = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
         if (user is null)
         {
-            await WriteFailedLoginAuditAsync(normalizedEmail, request.IpAddress, cancellationToken);
+            await WriteFailedLoginAuditAsync(normalizedEmail, cancellationToken);
             return Result<LoginResponse>.Failure(AuthErrors.InvalidCredentials);
         }
 
         if (!user.IsActive)
         {
-            await WriteFailedLoginAuditAsync(normalizedEmail, request.IpAddress, cancellationToken);
+            await WriteFailedLoginAuditAsync(normalizedEmail, cancellationToken);
             return Result<LoginResponse>.Failure(AuthErrors.UserInactive);
         }
 
         var passwordValid = passwordHasher.Verify(user.PasswordHash, request.Password);
         if (!passwordValid)
         {
-            await WriteFailedLoginAuditAsync(normalizedEmail, request.IpAddress, cancellationToken);
+            await WriteFailedLoginAuditAsync(normalizedEmail, cancellationToken);
             return Result<LoginResponse>.Failure(AuthErrors.InvalidCredentials);
         }
 
@@ -59,8 +64,8 @@ public sealed class LoginCommandHandler(
         var session = new RefreshSession(
             Guid.NewGuid(),
             user.Id,
-            request.DeviceName.Trim(),
-            request.IpAddress.Trim(),
+            requestContext.UserAgent,
+            requestContext.IpAddress,
             utcNow);
 
         var refreshToken = new RefreshToken(
@@ -83,18 +88,17 @@ public sealed class LoginCommandHandler(
 
         await refreshSessionRepository.AddAsync(session, cancellationToken);
 
-        var successAudit = new AuditLog(
-            Guid.NewGuid(),
-            user.Id,
+        var successAudit = auditLogFactory.Create(
             AuditActionType.LoginSucceeded,
-            request.IpAddress.Trim(),
-            request.DeviceName.Trim(),
-            Guid.NewGuid().ToString("N"),
-            $$"""{"event":"login_succeeded","email":"{{user.Email}}","sessionId":"{{session.Id}}"}""",
-            utcNow);
+            AuditPayloadBuilder.Build(new
+            {
+                @event = "login_succeeded",
+                email = user.Email,
+                sessionId = session.Id
+            }),
+            user.Id);
 
         await auditLogRepository.AddAsync(successAudit, cancellationToken);
-
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var response = new LoginResponse(
@@ -110,18 +114,15 @@ public sealed class LoginCommandHandler(
 
     private async Task WriteFailedLoginAuditAsync(
         string normalizedEmail,
-        string ipAddress,
         CancellationToken cancellationToken)
     {
-        var auditLog = new AuditLog(
-            Guid.NewGuid(),
-            null,
+        var auditLog = auditLogFactory.Create(
             AuditActionType.LoginFailed,
-            ipAddress.Trim(),
-            "unknown",
-            Guid.NewGuid().ToString("N"),
-            $$"""{"event":"login_failed","normalizedEmail":"{{normalizedEmail}}"}""",
-            dateTimeProvider.UtcNow);
+            AuditPayloadBuilder.Build(new
+            {
+                @event = "login_failed",
+                normalizedEmail
+            }));
 
         await auditLogRepository.AddAsync(auditLog, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

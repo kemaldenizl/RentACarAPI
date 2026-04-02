@@ -5,7 +5,5 @@ namespace Security.Application.Auth.Login;
 
 public sealed record LoginCommand(
     string Email,
-    string Password,
-    string DeviceName,
-    string IpAddress
+    string Password
 ) : IRequest<Result<LoginResponse>>;

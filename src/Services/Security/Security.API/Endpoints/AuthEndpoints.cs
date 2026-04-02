@@ -106,9 +106,8 @@ public static class AuthEndpoints
     {
         var command = new LoginCommand(
             request.Email,
-            request.Password,
-            httpContext.GetDeviceName(),
-            httpContext.GetClientIpAddress());
+            request.Password
+        );
 
         var result = await sender.Send(command, cancellationToken);
 
@@ -122,9 +121,8 @@ public static class AuthEndpoints
         CancellationToken cancellationToken)
     {
         var command = new RefreshTokenCommand(
-            request.RefreshToken,
-            httpContext.GetDeviceName(),
-            httpContext.GetClientIpAddress());
+            request.RefreshToken
+        );
 
         var result = await sender.Send(command, cancellationToken);
 
@@ -151,9 +149,8 @@ public static class AuthEndpoints
             currentUser.UserId,
             currentUser.SessionId.Value,
             currentUser.AccessTokenJti,
-            currentAccessToken.ExpiresAtUtc,
-            httpContext.GetDeviceName(),
-            httpContext.GetClientIpAddress());
+            currentAccessToken.ExpiresAtUtc
+        );
 
         var result = await sender.Send(command, cancellationToken);
 
@@ -179,9 +176,8 @@ public static class AuthEndpoints
         var command = new LogoutAllCommand(
             currentUser.UserId,
             currentUser.AccessTokenJti,
-            currentAccessToken.ExpiresAtUtc,
-            httpContext.GetDeviceName(),
-            httpContext.GetClientIpAddress());
+            currentAccessToken.ExpiresAtUtc
+        );
 
         var result = await sender.Send(command, cancellationToken);
 

@@ -1,8 +1,10 @@
 using MediatR;
+using Security.Application.Abstractions.Auditing;
 using Security.Application.Abstractions.Persistence;
 using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
+using Security.Application.Common.Auditing;
 using Security.Application.Common.Results;
 using Security.Domain.Auditing;
 
@@ -11,6 +13,7 @@ namespace Security.Application.Auth.Logout;
 public sealed class LogoutAllCommandHandler(
     IRefreshSessionRepository refreshSessionRepository,
     IAuditLogRepository auditLogRepository,
+    IAuditLogFactory auditLogFactory,
     IAccessTokenRevocationStore accessTokenRevocationStore,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
@@ -36,17 +39,15 @@ public sealed class LogoutAllCommandHandler(
             request.AccessTokenExpiresAtUtc,
             cancellationToken);
 
-        var revokedCount = sessions.Count;
-
-        var auditLog = new AuditLog(
-            Guid.NewGuid(),
-            request.UserId,
+        var auditLog = auditLogFactory.Create(
             AuditActionType.LogoutAllSessions,
-            request.IpAddress.Trim(),
-            request.DeviceName.Trim(),
-            Guid.NewGuid().ToString("N"),
-            $$"""{"event":"logout_all_sessions","revokedCount":{{revokedCount}},"accessTokenJti":"{{request.AccessTokenJti}}"}""",
-            utcNow);
+            AuditPayloadBuilder.Build(new
+            {
+                @event = "logout_all_sessions",
+                revokedCount = sessions.Count,
+                accessTokenJti = request.AccessTokenJti
+            }),
+            request.UserId);
 
         await auditLogRepository.AddAsync(auditLog, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -7,7 +7,5 @@ public sealed record LogoutCommand(
     Guid UserId,
     Guid SessionId,
     string AccessTokenJti,
-    DateTime AccessTokenExpiresAtUtc,
-    string DeviceName,
-    string IpAddress
+    DateTime AccessTokenExpiresAtUtc
 ) : IRequest<Result>;

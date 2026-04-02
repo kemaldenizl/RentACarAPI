@@ -6,6 +6,9 @@ using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Seed;
 using Security.API.Extensions;
 using Security.API.Middleware;
+using Security.API.OpenApi;
+using Security.API.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,8 +17,23 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddRateLimitExt(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddOpenApi();
+
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
+
 builder.Services.AddProblemDetails();
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: ["live"])
+    .AddDbContextCheck<SecurityDbContext>(name: "postgresql", failureStatus: HealthStatus.Unhealthy, tags: ["ready", "db"])
+    .AddRedis(
+        builder.Configuration.GetConnectionString("Redis") ?? throw new InvalidOperationException("Connection string 'Redis' was not found."),
+        name: "redis",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready", "cache"]
+    );
 
 var app = builder.Build();
 
@@ -40,6 +58,26 @@ using (var scope = app.Services.CreateScope())
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("live"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponseAsync
+})
+.WithTags("Health")
+.WithSummary("Liveness probe.")
+.WithDescription("Returns whether the API process is alive.")
+.WithOpenApi();
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponseAsync
+})
+.WithTags("Health")
+.WithSummary("Readiness probe.")
+.WithDescription("Returns whether the API and its critical dependencies are ready.")
+.WithOpenApi();
 
 app.MapGet("/", () => Results.Ok(new
 {

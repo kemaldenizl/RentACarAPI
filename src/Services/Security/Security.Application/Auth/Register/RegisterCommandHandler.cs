@@ -1,9 +1,11 @@
 using MediatR;
+using Security.Application.Abstractions.Auditing;
 using Security.Application.Abstractions.Persistence;
 using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
 using Security.Application.Auth.Dtos;
+using Security.Application.Common.Auditing;
 using Security.Application.Common.Errors;
 using Security.Application.Common.Results;
 using Security.Domain.Auditing;
@@ -14,6 +16,7 @@ namespace Security.Application.Auth.Register;
 public sealed class RegisterCommandHandler(
     IUserRepository userRepository,
     IAuditLogRepository auditLogRepository,
+    IAuditLogFactory auditLogFactory,
     IPasswordHasher passwordHasher,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
@@ -42,18 +45,17 @@ public sealed class RegisterCommandHandler(
 
         await userRepository.AddAsync(user, cancellationToken);
 
-        var auditLog = new AuditLog(
-            Guid.NewGuid(),
-            user.Id,
+        var auditLog = auditLogFactory.Create(
             AuditActionType.UserRegistered,
-            "system",
-            "application",
-            Guid.NewGuid().ToString("N"),
-            """{"event":"user_registered"}""",
-            utcNow);
+            AuditPayloadBuilder.Build(new
+            {
+                @event = "user_registered",
+                userId = user.Id,
+                email = user.Email
+            }),
+            user.Id);
 
         await auditLogRepository.AddAsync(auditLog, cancellationToken);
-
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var response = new RegisterResponse(

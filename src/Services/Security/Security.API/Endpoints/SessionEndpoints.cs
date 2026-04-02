@@ -87,9 +87,8 @@ public static class SessionEndpoints
             id,
             currentAccessToken.Jti,
             currentAccessToken.ExpiresAtUtc,
-            currentUser.SessionId,
-            httpContext.GetDeviceName(),
-            httpContext.GetClientIpAddress());
+            currentUser.SessionId
+        );
 
         var result = await sender.Send(command, cancellationToken);
 

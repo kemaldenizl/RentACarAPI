@@ -1,8 +1,10 @@
 using MediatR;
+using Security.Application.Abstractions.Auditing;
 using Security.Application.Abstractions.Persistence;
 using Security.Application.Abstractions.Security;
 using Security.Application.Abstractions.Time;
 using Security.Application.Abstractions.UnitOfWork;
+using Security.Application.Common.Auditing;
 using Security.Application.Common.Errors;
 using Security.Application.Common.Results;
 using Security.Domain.Auditing;
@@ -12,6 +14,7 @@ namespace Security.Application.Sessions.RevokeSession;
 public sealed class RevokeSessionCommandHandler(
     IRefreshSessionRepository refreshSessionRepository,
     IAuditLogRepository auditLogRepository,
+    IAuditLogFactory auditLogFactory,
     IAccessTokenRevocationStore accessTokenRevocationStore,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
@@ -50,15 +53,16 @@ public sealed class RevokeSessionCommandHandler(
                 cancellationToken);
         }
 
-        var auditLog = new AuditLog(
-            Guid.NewGuid(),
-            request.UserId,
+        var auditLog = auditLogFactory.Create(
             AuditActionType.SessionRevoked,
-            request.IpAddress.Trim(),
-            request.DeviceName.Trim(),
-            Guid.NewGuid().ToString("N"),
-            $$"""{"event":"session_revoked","sessionId":"{{session.Id}}","isCurrentSession":{{isCurrentSession.ToString().ToLowerInvariant()}},"accessTokenJti":"{{request.AccessTokenJti}}"}""",
-            utcNow);
+            AuditPayloadBuilder.Build(new
+            {
+                @event = "session_revoked",
+                sessionId = session.Id,
+                isCurrentSession,
+                accessTokenJti = request.AccessTokenJti
+            }),
+            request.UserId);
 
         await auditLogRepository.AddAsync(auditLog, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

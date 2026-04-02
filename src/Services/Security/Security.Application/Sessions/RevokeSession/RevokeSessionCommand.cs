@@ -8,6 +8,5 @@ public sealed record RevokeSessionCommand(
     Guid SessionId,
     string AccessTokenJti,
     DateTime AccessTokenExpiresAtUtc,
-    Guid? CurrentSessionId,
-    string DeviceName,
-    string IpAddress) : IRequest<Result>;
+    Guid? CurrentSessionId
+) : IRequest<Result>;

@@ -4,6 +4,7 @@ using Security.Application.Common.Results;
 using AppLoginResponse = Security.Application.Auth.Login.LoginResponse;
 using AppRefreshTokenResponse = Security.Application.Auth.Refresh.RefreshTokenResponse;
 using AppRegisterResponse = Security.Application.Auth.Register.RegisterResponse;
+using System.Text.Json;
 
 namespace Security.API.Common.ErrorMapping;
 
@@ -91,12 +92,7 @@ public static class ApplicationResultMapper
 
         return errorCode switch
         {
-            "validation.invalid" => httpContext.ToValidationProblemResult(
-                httpContext.CreateValidationProblemDetails(
-                    new Dictionary<string, string[]>
-                    {
-                        ["request"] = [result.Error.Description]
-                    })),
+            "validation.invalid" => httpContext.ToValidationProblemResult(httpContext.CreateValidationProblemDetails(ParseValidationErrors(result.Error.Description))),
 
             "auth.invalid_credentials" => httpContext.ToProblemResult(
                 httpContext.CreateProblemDetails(
@@ -175,6 +171,25 @@ public static class ApplicationResultMapper
                     StatusCodes.Status400BadRequest,
                     "Application error",
                     result.Error.Description))
+        };
+    }
+
+    private static IDictionary<string, string[]> ParseValidationErrors(string description)
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string[]>>(description);
+            if (parsed is not null && parsed.Count > 0)
+                return parsed;
+        }
+        catch
+        {
+            // ignored intentionally
+        }
+
+        return new Dictionary<string, string[]>
+        {
+            ["request"] = [description]
         };
     }
 }

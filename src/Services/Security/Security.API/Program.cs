@@ -9,6 +9,7 @@ using Security.API.Middleware;
 using Security.API.OpenApi;
 using Security.API.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Security.API.ProblemDetails;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +24,24 @@ builder.Services.AddOpenApi(options =>
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
 
-builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Extensions[ProblemDetailsDefaults.CorrelationIdExtensionKey] =
+            context.HttpContext.TraceIdentifier;
+
+        context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
+
+        if (string.IsNullOrWhiteSpace(context.ProblemDetails.Type) &&
+            context.ProblemDetails.Status.HasValue)
+        {
+            context.ProblemDetails.Type =
+                ProblemDetailsDefaults.StatusType(context.ProblemDetails.Status.Value);
+        }
+    };
+});
 
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: ["live"])

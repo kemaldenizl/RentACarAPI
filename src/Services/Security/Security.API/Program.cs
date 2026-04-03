@@ -90,10 +90,18 @@ if (app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<SecurityDbContext>();
-    await dbContext.Database.MigrateAsync();
 
-    var seeder = scope.ServiceProvider.GetRequiredService<IdentitySeeder>();
-    await seeder.SeedAsync();
+    if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("IntegrationTests"))
+    {
+        await dbContext.Database.MigrateAsync();
+
+        var seeder = scope.ServiceProvider.GetRequiredService<IdentitySeeder>();
+        await seeder.SeedAsync();
+    }
+    else if (app.Environment.IsStaging())
+    {
+        await dbContext.Database.MigrateAsync();
+    }
 }
 
 app.UseRateLimiter();

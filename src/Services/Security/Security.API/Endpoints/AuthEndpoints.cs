@@ -86,6 +86,7 @@ public static class AuthEndpoints
 
     private static async Task<IResult> RegisterAsync(
         RegisterRequest request,
+        HttpContext httpContext,
         ISender sender,
         CancellationToken cancellationToken)
     {
@@ -95,7 +96,7 @@ public static class AuthEndpoints
 
         var result = await sender.Send(command, cancellationToken);
 
-        return result.ToApiResult();
+        return httpContext.ToApiResult(result);
     }
 
     private static async Task<IResult> LoginAsync(
@@ -111,7 +112,7 @@ public static class AuthEndpoints
 
         var result = await sender.Send(command, cancellationToken);
 
-        return result.ToApiResult();
+        return httpContext.ToApiResult(result);
     }
 
     private static async Task<IResult> RefreshAsync(
@@ -126,7 +127,7 @@ public static class AuthEndpoints
 
         var result = await sender.Send(command, cancellationToken);
 
-        return result.ToApiResult();
+        return httpContext.ToApiResult(result);
     }
 
     private static async Task<IResult> LogoutAsync(
@@ -154,7 +155,7 @@ public static class AuthEndpoints
 
         var result = await sender.Send(command, cancellationToken);
 
-        return result.ToApiResult();
+        return httpContext.ToApiResult(result);
     }
 
     private static async Task<IResult> LogoutAllAsync(
@@ -181,6 +182,6 @@ public static class AuthEndpoints
 
         var result = await sender.Send(command, cancellationToken);
 
-        return result.ToApiResult();
+        return httpContext.ToApiResult(result);
     }
 }

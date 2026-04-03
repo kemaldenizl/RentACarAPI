@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Security.Application.Common.Errors;
@@ -31,8 +32,15 @@ public sealed class ValidationBehavior<TRequest, TResponse>(
         if (failures.Length == 0)
             return await next();
 
-        var message = string.Join(" | ", failures.Select(x => $"{x.PropertyName}: {x.ErrorMessage}"));
-        var error = ValidationErrors.Invalid("request", message);
+        var groupedErrors = failures
+            .GroupBy(x => ToCamelCase(x.PropertyName))
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.ErrorMessage).Distinct().ToArray());
+
+        var error = new Error(
+            "validation.invalid",
+            JsonSerializer.Serialize(groupedErrors));
 
         object result = typeof(TResponse) switch
         {
@@ -45,6 +53,14 @@ public sealed class ValidationBehavior<TRequest, TResponse>(
         };
 
         return (TResponse)result;
+    }
+
+    private static string ToCamelCase(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "request";
+
+        return char.ToLowerInvariant(value[0]) + value[1..];
     }
 
     private static object CreateGenericFailure(Error error)

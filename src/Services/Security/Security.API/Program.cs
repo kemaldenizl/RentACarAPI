@@ -17,30 +17,25 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddRateLimitExt(builder.Configuration);
 
-builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.AddOpenApi(options =>
-{
-    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
-});
-
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
     {
-        context.ProblemDetails.Extensions[ProblemDetailsDefaults.CorrelationIdExtensionKey] =
-            context.HttpContext.TraceIdentifier;
-
+        context.ProblemDetails.Extensions[ProblemDetailsDefaults.CorrelationIdExtensionKey] = context.HttpContext.TraceIdentifier;            
         context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
 
-        if (string.IsNullOrWhiteSpace(context.ProblemDetails.Type) &&
-            context.ProblemDetails.Status.HasValue)
+        if (string.IsNullOrWhiteSpace(context.ProblemDetails.Type) && context.ProblemDetails.Status.HasValue)
         {
-            context.ProblemDetails.Type =
-                ProblemDetailsDefaults.StatusType(context.ProblemDetails.Status.Value);
+            context.ProblemDetails.Type = ProblemDetailsDefaults.StatusType(context.ProblemDetails.Status.Value);        
         }
     };
+});
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
 
 builder.Services.AddHealthChecks()

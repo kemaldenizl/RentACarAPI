@@ -25,6 +25,8 @@ using Security.Application.Abstractions.Auditing;
 using Security.Application.Abstractions.RequestContext;
 using Security.Infrastructure.Auditing;
 using Security.Infrastructure.RequestContext;
+using Microsoft.AspNetCore.Mvc;
+
 
 namespace Security.Infrastructure;
 
@@ -102,11 +104,51 @@ public static class DependencyInjection
                         {
                             context.Fail("Token has been revoked.");
                         }
+                    },
+                    OnChallenge = async context =>
+                    {
+                        if (context.Response.HasStarted)
+                            return;
+
+                        context.HandleResponse();
+
+                        var problem = new ProblemDetails
+                        {
+                            Type = "https://httpstatuses.com/401",
+                            Title = "Unauthorized",
+                            Status = StatusCodes.Status401Unauthorized,
+                            Detail = "Authentication is required or the access token is invalid.",
+                            Instance = context.HttpContext.Request.Path
+                        };
+
+                        problem.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
+
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/problem+json";
+
+                        await context.Response.WriteAsJsonAsync(problem, context.HttpContext.RequestAborted);
+                    },
+                    OnForbidden = async context =>
+                    {
+                        var problem = new ProblemDetails
+                        {
+                            Type = "https://httpstatuses.com/403",
+                            Title = "Forbidden",
+                            Status = StatusCodes.Status403Forbidden,
+                            Detail = "You do not have permission to access this resource.",
+                            Instance = context.HttpContext.Request.Path
+                        };
+
+                        problem.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
+
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        context.Response.ContentType = "application/problem+json";
+
+                        await context.Response.WriteAsJsonAsync(problem, context.HttpContext.RequestAborted);
                     }
                 };
             }
         );
-
 
         services.AddAuthorization(options =>
         {

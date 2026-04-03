@@ -4,7 +4,7 @@ namespace Security.API.ProblemDetails;
 
 public static class ProblemDetailsExtensions
 {
-    public static IResult ToProblemResult(this HttpContext httpContext, ProblemDetails problemDetails)
+    public static IResult ToProblemResult(this HttpContext httpContext, Microsoft.AspNetCore.Mvc.ProblemDetails problemDetails)
     {
         return Results.Problem(problemDetails);
     }

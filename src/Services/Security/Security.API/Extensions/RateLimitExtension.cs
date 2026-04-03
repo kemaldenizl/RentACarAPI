@@ -26,16 +26,18 @@ public static class RateLimitExtension
                     context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);                      
                 }
 
-                var response = new
+                var problem = new Microsoft.AspNetCore.Mvc.ProblemDetails
                 {
-                    type = "https://httpstatuses.com/429",
-                    title = "Too Many Requests",
-                    status = StatusCodes.Status429TooManyRequests,
-                    detail = "Rate limit exceeded. Please try again later.",
-                    traceId = context.HttpContext.TraceIdentifier
+                    Type = "https://httpstatuses.com/429",
+                    Title = "Too Many Requests",
+                    Status = StatusCodes.Status429TooManyRequests,
+                    Detail = "Rate limit exceeded. Please try again later.",
+                    Instance = context.HttpContext.Request.Path
                 };
 
-                await context.HttpContext.Response.WriteAsJsonAsync(response, cancellationToken);
+                problem.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
+
+                await context.HttpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
             };
 
             options.AddPolicy(RateLimitPolicyNames.Register, httpContext =>

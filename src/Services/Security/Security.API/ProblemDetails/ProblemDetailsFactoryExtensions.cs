@@ -4,14 +4,14 @@ namespace Security.API.ProblemDetails;
 
 public static class ProblemDetailsFactoryExtensions
 {
-    public static ProblemDetails CreateProblemDetails(
+    public static Microsoft.AspNetCore.Mvc.ProblemDetails CreateProblemDetails(
         this HttpContext httpContext,
         int statusCode,
         string title,
         string detail,
         string? type = null)
     {
-        var problemDetails = new ProblemDetails
+        var problemDetails = new Microsoft.AspNetCore.Mvc.ProblemDetails
         {
             Type = type ?? ProblemDetailsDefaults.StatusType(statusCode),
             Title = title,

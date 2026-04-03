@@ -57,7 +57,7 @@ public static class SessionEndpoints
         var result = await sender.Send(query, cancellationToken);
 
         if (result.IsFailure)
-            return result.ToApiResult();
+            return httpContext.ToApiResult(result);
 
         var response = result.Value
             .Select(x => new SessionResponse(
@@ -92,6 +92,6 @@ public static class SessionEndpoints
 
         var result = await sender.Send(command, cancellationToken);
 
-        return result.ToApiResult();
+        return httpContext.ToApiResult(result);
     }
 }

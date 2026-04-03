@@ -1,4 +1,5 @@
 using Security.API.Contracts.Auth;
+using Security.API.ProblemDetails;
 using Security.Application.Common.Results;
 using AppLoginResponse = Security.Application.Auth.Login.LoginResponse;
 using AppRefreshTokenResponse = Security.Application.Auth.Refresh.RefreshTokenResponse;
@@ -8,17 +9,17 @@ namespace Security.API.Common.ErrorMapping;
 
 public static class ApplicationResultMapper
 {
-    public static IResult ToApiResult(this Result result)
+    public static IResult ToApiResult(this HttpContext httpContext, Result result)
     {
         if (result.IsSuccess)
         {
             return Results.NoContent();
         }
 
-        return MapFailure(result);
+        return MapFailure(httpContext, result);
     }
 
-    public static IResult ToApiResult(this Result<AppRegisterResponse> result)
+    public static IResult ToApiResult(this HttpContext httpContext, Result<AppRegisterResponse> result)
     {
         if (result.IsSuccess)
         {
@@ -32,10 +33,10 @@ public static class ApplicationResultMapper
             return Results.Created($"/api/users/{response.User.Id}", response);
         }
 
-        return MapFailure(result);
+        return MapFailure(httpContext, result);
     }
 
-    public static IResult ToApiResult(this Result<AppLoginResponse> result)
+    public static IResult ToApiResult(this HttpContext httpContext, Result<AppLoginResponse> result)
     {
         if (result.IsSuccess)
         {
@@ -54,10 +55,10 @@ public static class ApplicationResultMapper
             return Results.Ok(response);
         }
 
-        return MapFailure(result);
+        return MapFailure(httpContext, result);
     }
 
-    public static IResult ToApiResult(this Result<AppRefreshTokenResponse> result)
+    public static IResult ToApiResult(this HttpContext httpContext, Result<AppRefreshTokenResponse> result)
     {
         if (result.IsSuccess)
         {
@@ -71,93 +72,109 @@ public static class ApplicationResultMapper
             return Results.Ok(response);
         }
 
-        return MapFailure(result);
+        return MapFailure(httpContext, result);
     }
 
     private static IResult MapFailure(Result result)
+    {
+        throw new InvalidOperationException("HttpContext is required for problem details mapping.");
+    }
+
+    private static IResult MapFailure<T>(HttpContext httpContext, Result<T> result)
+    {
+        return MapFailure(httpContext, (Result)result);
+    }
+
+    private static IResult MapFailure(HttpContext httpContext, Result result)
     {
         var errorCode = result.Error.Code;
 
         return errorCode switch
         {
-            "validation.invalid" => Results.ValidationProblem(
-                new Dictionary<string, string[]>
-                {
-                    ["request"] = [result.Error.Description]
-                },
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Validation failed",
-                detail: result.Error.Description),
+            "validation.invalid" => httpContext.ToValidationProblemResult(
+                httpContext.CreateValidationProblemDetails(
+                    new Dictionary<string, string[]>
+                    {
+                        ["request"] = [result.Error.Description]
+                    })),
 
-            "auth.invalid_credentials" => Results.Problem(
-                title: "Authentication failed",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.invalid_credentials" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Authentication failed",
+                    result.Error.Description)),
 
-            "auth.invalid_refresh_token" => Results.Problem(
-                title: "Invalid refresh token",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.invalid_refresh_token" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Invalid refresh token",
+                    result.Error.Description)),
 
-            "auth.expired_refresh_token" => Results.Problem(
-                title: "Expired refresh token",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.expired_refresh_token" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Expired refresh token",
+                    result.Error.Description)),
 
-            "auth.revoked_refresh_token" => Results.Problem(
-                title: "Revoked refresh token",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.revoked_refresh_token" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Revoked refresh token",
+                    result.Error.Description)),
 
-            "auth.consumed_refresh_token" => Results.Problem(
-                title: "Consumed refresh token",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.consumed_refresh_token" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Consumed refresh token",
+                    result.Error.Description)),
 
-            "auth.session_revoked" => Results.Problem(
-                title: "Session revoked",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.session_revoked" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Session revoked",
+                    result.Error.Description)),
 
-            "auth.refresh_token_reuse_detected" => Results.Problem(
-                title: "Refresh token reuse detected",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status401Unauthorized),
+            "auth.refresh_token_reuse_detected" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status401Unauthorized,
+                    "Refresh token reuse detected",
+                    result.Error.Description)),
 
-            "auth.invalid_session" => Results.Problem(
-                title: "Invalid session",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status400BadRequest),
+            "auth.invalid_session" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status400BadRequest,
+                    "Invalid session",
+                    result.Error.Description)),
 
-            "auth.session_not_found" => Results.Problem(
-                title: "Session not found",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status404NotFound),
+            "auth.session_not_found" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status404NotFound,
+                    "Session not found",
+                    result.Error.Description)),
 
-            "auth.user_inactive" => Results.Problem(
-                title: "User inactive",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status403Forbidden),
+            "auth.user_inactive" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status403Forbidden,
+                    "User inactive",
+                    result.Error.Description)),
 
-            "auth.email_not_verified" => Results.Problem(
-                title: "Email is not verified",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status403Forbidden),
+            "auth.email_not_verified" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status403Forbidden,
+                    "Email is not verified",
+                    result.Error.Description)),
 
-            "auth.user_already_exists" => Results.Problem(
-                title: "Conflict",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status409Conflict),
+            "auth.user_already_exists" => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status409Conflict,
+                    "Conflict",
+                    result.Error.Description)),
 
-            _ => Results.Problem(
-                title: "Application error",
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status400BadRequest)
+            _ => httpContext.ToProblemResult(
+                httpContext.CreateProblemDetails(
+                    StatusCodes.Status400BadRequest,
+                    "Application error",
+                    result.Error.Description))
         };
-    }
-
-    private static IResult MapFailure<T>(Result<T> result)
-    {
-        return MapFailure((Result)result);
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Security.Domain.Authorization;
 using Security.Domain.Users;
 using Security.Infrastructure.Security;
+using Microsoft.Extensions.Hosting;
 
 namespace Security.Infrastructure.Persistence.Seed;
 
@@ -11,15 +12,24 @@ public sealed class IdentitySeeder(
     SecurityDbContext dbContext,
     PasswordHasher passwordHasher,
     IOptions<IdentitySeedOptions> options,
-    ILogger<IdentitySeeder> logger)
+    IHostEnvironment hostEnvironment,
+    ILogger<IdentitySeeder> logger
+)
 {
     private readonly IdentitySeedOptions _options = options.Value;
+    private readonly IHostEnvironment _hostEnvironment = hostEnvironment;
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled)
         {
             logger.LogInformation("Identity seed is disabled.");
+            return;
+        }
+
+        if (_hostEnvironment.IsProduction() && !_options.AllowInProduction)
+        {
+            logger.LogWarning("Identity seed is blocked in Production environment.");
             return;
         }
 
